@@ -11,11 +11,11 @@ class SlackPaster(threading.Thread):
     """ Monitoring clipboard.and post copying text to Slack
         select all text or include url text only
     """
-    def __init__(self, token, room_name, urlflg):
+    def __init__(self, token, room_name, url_room_name):
         threading.Thread.__init__(self)
         self.__token = token
         self.__room_name = room_name
-        self.__urlflg = urlflg
+        self.__url_room_name = url_room_name
         self.__last_str = ""
 
     def __get_clipboard(self):
@@ -24,8 +24,7 @@ class SlackPaster(threading.Thread):
         return pyperclip.paste()
 
     def __post_slack(self, room, msg):
-        slacker = Slacker(self.__token)
-        slacker.chat.post_message(room, msg, as_user=True)
+        Slacker(self.__token).chat.post_message(room, msg, as_user=True)
 
     def __is_contain_url(self, text):
         p = re.compile(r"^(https?|ftp)://[A-Za-z0-9.?/]+")
@@ -38,10 +37,11 @@ class SlackPaster(threading.Thread):
             time.sleep(1)
             data = self.__get_clipboard()
             if len(data) > 0 and data != self.__last_str:
-                if self.__urlflg:
-                    if not self.__is_contain_url(data):
-                        continue
-                self.__post_slack(self.__room_name, data)
+                room_name = self.__room_name
+                if self.__is_contain_url(data):
+                    room_name = self.__url_room_name
+                    
+                self.__post_slack(room_name, data)
                 self.__last_str = data
 
     def run(self):
@@ -51,12 +51,12 @@ class SlackPaster(threading.Thread):
 if __name__ == "__main__":
     import settings
     token = settings.SLACK_TOKEN
-    post_room_name = settings.POST_ROOM_NAME
-    url_only_flg = settings.URL_ONLY_FLG
+    room_name = settings.POST_ROOM_NAME
+    url_room_name = settings.POST_ROOM_NAME_INCLUDE_URL
 
-    sp = SlackPaster(token, post_room_name, url_only_flg)
+    sp = SlackPaster(token, room_name, url_room_name)
     sp.setDaemon(True)
     sp.start()
     
     while True:
-        time.sleep(5)
+        time.sleep(1)
